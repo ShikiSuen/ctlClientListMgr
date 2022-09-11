@@ -42,30 +42,48 @@ extension ctlClientListMgr {
   @IBAction func btnAddClientClicked(_: Any) {
     guard let window = window else { return }
     let alert = NSAlert()
-    alert.messageText = "Please enter the identifier(s) you want to register."
-    alert.informativeText = "One record per line. Use Option+Enter to break lines.\nBlank lines will be dismissed."
+    alert.messageText = NSLocalizedString(
+      "Please enter the client app bundle identifier(s) you want to register.", comment: ""
+    )
+    alert.informativeText = NSLocalizedString(
+      "One record per line. Use Option+Enter to break lines.\nBlank lines will be dismissed.", comment: ""
+    )
     alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
     alert.addButton(withTitle: NSLocalizedString("Just Select", comment: "") + "…")
     alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
 
-    let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 370, height: 380))
-    input.stringValue = ""
+    let maxFloat = CGFloat(Float.greatestFiniteMagnitude)
+    let scrollview = NSScrollView(frame: NSRect(x: 0, y: 0, width: 370, height: 380))
+    let contentSize = scrollview.contentSize
+    scrollview.borderType = .noBorder
+    scrollview.hasVerticalScroller = true
+    scrollview.hasHorizontalScroller = true
+    scrollview.horizontalScroller?.scrollerStyle = .legacy
+    scrollview.verticalScroller?.scrollerStyle = .legacy
+    scrollview.autoresizingMask = [.width, .height]
+    let theTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: contentSize.width, height: contentSize.height))
+    theTextView.minSize = NSSize(width: 0.0, height: contentSize.height)
+    theTextView.maxSize = NSSize(width: maxFloat, height: maxFloat)
+    theTextView.isVerticallyResizable = true
+    theTextView.isHorizontallyResizable = false
+    theTextView.autoresizingMask = .width
+    theTextView.textContainer?.containerSize = NSSize(width: contentSize.width, height: maxFloat)
+    theTextView.textContainer?.widthTracksTextView = true
+    scrollview.documentView = theTextView
+    theTextView.enclosingScrollView?.hasHorizontalScroller = true
+    theTextView.isHorizontallyResizable = true
+    theTextView.autoresizingMask = [.width, .height]
+    theTextView.textContainer?.containerSize = NSSize(width: maxFloat, height: maxFloat)
+    theTextView.textContainer?.widthTracksTextView = false
 
-    alert.accessoryView = input
+    alert.accessoryView = scrollview
     alert.beginSheetModal(for: window) { result in
       switch result {
-        case .alertFirstButtonReturn:
-          if mgrPrefs.clientsIMKTextInputIncapable.contains(input.stringValue) {
-            let title = NSLocalizedString(
-              "The selected item's identifier is already in the list.", comment: ""
-            )
-            self.callAlert(window, title: title)
-            return
-          }
-          input.stringValue.components(separatedBy: "\n").filter({ !$0.isEmpty }).forEach {
+        case .alertFirstButtonReturn, .alertSecondButtonReturn:
+          theTextView.textContainer?.textView?.string.components(separatedBy: "\n").filter { !$0.isEmpty }.forEach {
             self.applyNewValue($0)
           }
-        case .alertSecondButtonReturn:
+          if result == .alertFirstButtonReturn { break }
           IME.dlgOpenPath.title = NSLocalizedString(
             "Choose the target application bundle.", comment: ""
           )
@@ -116,7 +134,7 @@ extension ctlClientListMgr {
   @IBAction func btnRemoveClientClicked(_: Any) {
     if tblClients.selectedRow >= mgrPrefs.clientsIMKTextInputIncapable.count { return }
     if tblClients.selectedRow < 0 { return }
-    let isLastRow = {
+    let isLastRow: Bool = {
       if mgrPrefs.clientsIMKTextInputIncapable.count < 2 { return false }
       return tblClients.selectedRow == mgrPrefs.clientsIMKTextInputIncapable.count - 1
     }()
